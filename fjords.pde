@@ -40,22 +40,13 @@ Use of a 16Mhz xtal/ceramic resonator is strongly suggested.
 #define X               6 // attach scope channel 1 (X) to pin 6
 #define Y               5 // attach scope channel 2 (y) to pin 5
 
+/* // x coords for drawing the tree (in rough clockwise order, from bottom) */
+/* unsigned char x_points[NUM_POINTS] = {  110, 110, 50, 80, 65, 95, 80, 110, 95, 125, */
+/*                     155, 140, 170, 155, 185, 170, 200, 140, 140 }; */
 
-/* typedef struct point_t { */
-/*     char x; */
-/*     char y; */
-/* } point_t; */
-
-
-/* point_t points[NUM_POINTS] = */
-
-// x coords for drawing the tree (in rough clockwise order, from bottom)
-unsigned char x_points[NUM_POINTS] = {  110, 110, 50, 80, 65, 95, 80, 110, 95, 125,
-                    155, 140, 170, 155, 185, 170, 200, 140, 140 };
-
-// y coords
-unsigned char y_points[NUM_POINTS] = {  15, 35, 35, 85, 85, 135, 135, 185, 185, 235,
-                    185, 185, 135, 135, 85, 85, 35, 35, 15 };
+/* // y coords */
+/* unsigned char y_points[NUM_POINTS] = {  15, 35, 35, 85, 85, 135, 135, 185, 185, 235, */
+/*                     185, 185, 135, 135, 85, 85, 35, 35, 15 }; */
 
 void setup()
 {
@@ -78,12 +69,54 @@ void setup()
 
 }
 
+
+typedef struct point_t {
+    unsigned int x;
+    unsigned int y;
+} point_t;
+
+int draw_point(point_t point, point_t offset);
+int draw(point_t *points, int point_len, point_t offset);
+
+
+const unsigned char whale_points = 18;
+point_t whale[whale_points] = {
+    {130, 0}, {120, 10}, {20, 10}, {0, 30}, {10, 60}, {20, 40},
+    {60, 50}, {130, 30}, {50, 30}, {90, 70}, {150, 90}, {200, 70},
+    {210, 40}, {200, 30}, {190, 30}, {210, 20}, {200, 10}, {150, 10},
+};
+
+const unsigned int MAX_XY =  1000;
+
+point_t bounding_box[4] = {
+    {0, 0}, {0, MAX_XY},
+};
+
+int draw_point(point_t point, point_t offset)
+{
+    analogWrite(X, point.x - offset.x);
+    analogWrite(Y, point.y - offset.y);
+    delayMicroseconds(TRACE_DELAY);
+    return 0;
+}
+
+
+int draw(point_t *points, int point_len, point_t offset)
+{
+    for (int t = 0; t < point_len; t++){
+        draw_point(points[t], offset);
+    }
+    return 0;
+}
+
+point_t whale_loc = {0, 0}
+
 void loop()
 {
     unsigned char t;
-    for(t = 0; t < NUM_POINTS; t++){
-        analogWrite(X, x_points[t]);
-        analogWrite(Y, y_points[t]);
-        delayMicroseconds(TRACE_DELAY);
-    }
+    point_t offset = {0, 0};
+
+    draw(bounding_box, 2, offset);
+    /* draw(tree, NUM_POINTS, offset); */
+    draw(whale, whale_points, offset);
 }

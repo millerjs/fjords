@@ -1,17 +1,19 @@
-#define TRACE_DELAY 2000  // original = 2500
+#define TRACE_DELAY 1000  // original = 2500
 #define NUM_POINTS  19
 #define X           6
 #define Y           5
 #define upPin       4     // the up button pin
 #define downPin     3     // the down button pin
-
+#define speakerPin  2     // the down button pin
+#define BASE_RATE   10
+#include "pitches.h"
 
 void setup()
 {
   pinMode(upPin, INPUT);
   pinMode(downPin, INPUT);
 
-
+  pinMode(speakerPin, OUTPUT);
   pinMode(X, OUTPUT);
   pinMode(Y, OUTPUT);
   TCCR0A = (1<<COM0A1 | 0<<COM0A0 | 1<<COM0B1 | 0<<COM0B0 | 1<<WGM01  | 1<<WGM00);
@@ -30,17 +32,18 @@ int update_fish(point_t *fish_pos);
 int is_fish_eaten(point_t whale_pos, point_t *fish_pos);
 int reset_fish(point_t *fish_pos);
 void update_game_state();
+void play_next_note();
 
-const unsigned char whale_points = 18;
+const unsigned char whale_points = 21;
 point_t whale[whale_points] = {
-    {65, 0}, {60, 5}, {10, 5}, {0, 15}, {5, 30}, {10, 20},
-    {30, 25}, {65, 15}, {25, 15}, {45, 35}, {75, 45}, {100, 35},
-    {105, 20}, {100, 15}, {95, 15}, {105, 10}, {100, 5}, {75, 5},
+    {75, 5}, {65, 0}, {60, 5}, {10, 5}, {0, 15}, {5, 40}, {15, 20},
+    {30, 35}, {15, 15}, {25, 15}, {45, 35}, {75, 45}, {100, 35},
+    {105, 20}, {100, 15}, {75, 15}, {105, 10}, {100, 5}, {75, 5}, {65, 0}, {75, 5}
 };
 
 const unsigned char fish_points = 8;
 point_t fish[fish_points] = {
-    {0, 10}, {10, 20}, {20, 10}, {30, 20}, {30, 0}, {20, 10}, {5, 0}, {0, 12},
+    {0, 10}, {10, 20}, {20, 10}, {30, 30}, {30, 0}, {20, 10}, {5, 0}, {0, 12},
 };
 
 const unsigned char MAX_XY =  255;
@@ -75,6 +78,51 @@ point_t no_offset = {0, 0};
 point_t fish_1 = {MAX_XY*3/4, 100};
 unsigned char missed_fish = 0;
 
+const unsigned char measure = 24;
+const unsigned char WN = measure;
+const unsigned char HN = measure/2;
+const unsigned char QN = measure/4;
+const unsigned char EN = measure/8;
+const unsigned char DQN = QN + EN;
+const unsigned char SONG_LEN = 44;
+
+int notes[SONG_LEN] = {
+  NOTE_A5, NOTE_A5, NOTE_A5, NOTE_A5, NOTE_A5, NOTE_A5,
+  NOTE_A5, NOTE_D4, NOTE_F4, NOTE_A5,
+  NOTE_G5, NOTE_G5, NOTE_G5, NOTE_G5, NOTE_G5, NOTE_G5,
+  NOTE_G5, NOTE_C4, NOTE_E4, NOTE_G5,
+  NOTE_A5, NOTE_A5, NOTE_A5, NOTE_A5, NOTE_A5, NOTE_A5,
+  NOTE_A5, NOTE_B5, NOTE_C5, NOTE_D5, 
+  NOTE_C5, NOTE_A5, NOTE_G5, NOTE_E5,
+  NOTE_D4, NOTE_D4, 
+  NOTE_A5, NOTE_A5, NOTE_A5,
+  NOTE_A5, NOTE_B5, NOTE_C5, NOTE_D5,
+  NOTE_B0,
+};
+char durations[SONG_LEN] = {
+  QN, EN, EN, QN, EN, EN,
+  QN, QN, QN, QN,
+  QN, EN, EN, QN, EN, EN,
+  QN, QN, QN, QN,
+  QN, EN, EN, QN, EN, EN,
+  QN, QN, QN, QN,
+  QN, QN, QN, QN,
+  HN, HN,
+  HN, DQN, EN,
+  QN, QN, QN, QN,
+  //HN, DQN, EN,
+  //QN, QN, QN, QN, 
+  //HN, DQN, EN, 
+  //QN, QN, QN, QN, 
+  //QN, QN, QN, QN, 
+  //HN, HN,
+  QN,
+};
+int last_note = 0;
+int last_note_duration = 0;
+unsigned char song_rest = 0;
+unsigned char rest_duration = 0;
+
 int reset_fish(point_t *fish_pos)
 {
     fish_pos->y = random(0, 200);
@@ -93,11 +141,11 @@ int is_fish_eaten(point_t whale_pos, point_t *fish_pos)
 
 int update_fish(point_t *fish_pos)
 {
-    unsigned char dx = random(5, 12);    
+    unsigned char dx = random(BASE_RATE/3, BASE_RATE*1.2);    
     if (fish_pos->x <= dx){
       reset_fish(fish_pos);
       missed_fish++;
-      for (int t = 0; t < 200; t ++){   
+      for (int t = 0; t < 100; t ++){   
         draw(crossed_box, crossed_pox_points, no_offset);
       }
     }
@@ -109,14 +157,14 @@ int update_fish(point_t *fish_pos)
 }
 
 void update_game_state(){
-    if ((digitalRead(upPin) == HIGH) && (whale[10].y + whale_pos.y < MAX_XY - 10)) { 
-        whale_pos.y += 10;
-    } else if ((digitalRead(downPin) == HIGH) && (whale[0].y + whale_pos.y > 10)){    
-        whale_pos.y -= 10;
+    if ((digitalRead(upPin) == HIGH) && (whale_pos.y < MAX_XY - BASE_RATE- 50)) { 
+        whale_pos.y += BASE_RATE*1.5;
+    } else if ((digitalRead(downPin) == HIGH) && (whale_pos.y > BASE_RATE)){    
+        whale_pos.y -= BASE_RATE;
     }
     
-    unsigned char sink = random(0, 10);
-    if (whale_pos.y > sink){
+    unsigned char sink = random(0, BASE_RATE);
+    if (whale_pos.y > sink*2){
        whale_pos.y -= sink;
     }
 
@@ -125,15 +173,43 @@ void update_game_state(){
     }
 
     update_fish(&fish_1);
-    draw(whale, whale_points, whale_pos);
-    draw(fish, fish_points, fish_1);
-    draw_point(whale_pos, no_offset);
+}
+
+void play_next_note()
+{
+  if (song_rest){
+    // we're resting, are we done?
+    if (song_rest > rest_duration){
+      // rest over
+      song_rest = 0;
+    } else {
+      // increment rest count
+      song_rest++;
+      return;
+    }
+  }
+   if (last_note_duration > durations[last_note]){
+     // we're done with this note, take a rest
+     last_note_duration = 0;
+     last_note++;
+     song_rest = 1;
+   } else {
+     last_note_duration++;
+     tone(speakerPin, notes[last_note], 40);
+   }
+   if (last_note >= SONG_LEN){
+     last_note = 0;
+   }
+
 }
 
 void loop()
 {
     if (missed_fish < 3){
-      update_game_state();
+      
     } 
-    
+    update_game_state();
+    draw(whale, whale_points, whale_pos);
+    draw(fish, fish_points, fish_1);
+    play_next_note();
 }

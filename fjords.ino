@@ -8,10 +8,18 @@
 #define BASE_RATE   10
 #include "pitches.h"
 
+char n_led = 1;
+char led_pins[] = {8};
+char led[] = {100};
+char dled[] = {1};
+
 void setup()
 {
   pinMode(upPin, INPUT);
   pinMode(downPin, INPUT);
+  for (int n = 0; n < n_led; n++){
+     pinMode(led_pins[n], OUTPUT);
+  }
 
   pinMode(speakerPin, OUTPUT);
   pinMode(X, OUTPUT);
@@ -22,8 +30,8 @@ void setup()
 }
 
 typedef struct point_t {
-    unsigned char x;
-    unsigned char y;
+    int x;
+    int y;
 } point_t;
 
 int draw_point(point_t point, point_t offset);
@@ -77,6 +85,7 @@ point_t whale_pos = {0, 0};
 point_t no_offset = {0, 0};
 point_t fish_1 = {MAX_XY*3/4, 100};
 unsigned char missed_fish = 0;
+int streak = 0;
 
 const unsigned char measure = 24;
 const unsigned char WN = measure;
@@ -84,7 +93,7 @@ const unsigned char HN = measure/2;
 const unsigned char QN = measure/4;
 const unsigned char EN = measure/8;
 const unsigned char DQN = QN + EN;
-const unsigned char SONG_LEN = 44;
+const unsigned char SONG_LEN = 63;
 
 int notes[SONG_LEN] = {
   NOTE_A5, NOTE_A5, NOTE_A5, NOTE_A5, NOTE_A5, NOTE_A5,
@@ -95,9 +104,14 @@ int notes[SONG_LEN] = {
   NOTE_A5, NOTE_B5, NOTE_C5, NOTE_D5, 
   NOTE_C5, NOTE_A5, NOTE_G5, NOTE_E5,
   NOTE_D4, NOTE_D4, 
-  NOTE_A5, NOTE_A5, NOTE_A5,
-  NOTE_A5, NOTE_B5, NOTE_C5, NOTE_D5,
-  NOTE_B0,
+  NOTE_A5, NOTE_A5, NOTE_A5, 
+  NOTE_A5, NOTE_D4, NOTE_F4, NOTE_A5, 
+  NOTE_G5, NOTE_G5, NOTE_G5, 
+  NOTE_G5, NOTE_C4, NOTE_E4, NOTE_G5, 
+  NOTE_A5, NOTE_A5, NOTE_A5, 
+  NOTE_A5, NOTE_B5, NOTE_C5, NOTE_D4, 
+  NOTE_C5, NOTE_A5, NOTE_G4, NOTE_E4, 
+  NOTE_D4, NOTE_D4, 
 };
 char durations[SONG_LEN] = {
   QN, EN, EN, QN, EN, EN,
@@ -109,14 +123,13 @@ char durations[SONG_LEN] = {
   QN, QN, QN, QN,
   HN, HN,
   HN, DQN, EN,
-  QN, QN, QN, QN,
-  //HN, DQN, EN,
-  //QN, QN, QN, QN, 
-  //HN, DQN, EN, 
-  //QN, QN, QN, QN, 
-  //QN, QN, QN, QN, 
-  //HN, HN,
-  QN,
+  QN, QN, QN, QN, 
+  HN, DQN, EN,
+  QN, QN, QN, QN, 
+  HN, DQN, EN,
+  QN, QN, QN, QN, 
+  QN, QN, QN, QN, 
+  HN, HN,
 };
 int last_note = 0;
 int last_note_duration = 0;
@@ -133,7 +146,8 @@ int is_fish_eaten(point_t whale_pos, point_t *fish_pos)
 {
     unsigned int dx = whale_pos.x + 80 - fish_pos->x;
     unsigned int dy = whale_pos.y + 40 - fish_pos->y;
-    if ((abs(dx) < 10) && (abs(dy) < 50)){
+    if ((abs(dx) < 10) && (abs(dy) < 85)){
+       streak++;
        return 1; 
     }
     return 0;
@@ -145,11 +159,19 @@ int update_fish(point_t *fish_pos)
     if (fish_pos->x <= dx){
       reset_fish(fish_pos);
       missed_fish++;
-      for (int t = 0; t < 100; t ++){   
+      for (int t = 0; t < 75; t ++){
         draw(crossed_box, crossed_pox_points, no_offset);
+        tone(speakerPin, NOTE_E3, 40);
+        tone(speakerPin, NOTE_F4, 40);
       }
+      streak = 0;
     }
     fish_pos->x -= dx;
+    
+    char dy = random(-streak, streak);
+    if (fish_pos->y > -2*dy && fish_pos->y < MAX_XY - 2*dy - 50){
+      fish_pos->y += dy;
+    }
 
     if (fish_pos->y < 0)      { fish_pos->y = 0;      }
     if (fish_pos->y > MAX_XY) { fish_pos->y = MAX_XY; }
@@ -199,17 +221,27 @@ void play_next_note()
    }
    if (last_note >= SONG_LEN){
      last_note = 0;
+     song_rest = 1;
    }
 
 }
 
 void loop()
 {
-    if (missed_fish < 3){
-      
-    } 
+
     update_game_state();
     draw(whale, whale_points, whale_pos);
     draw(fish, fish_points, fish_1);
+    
+    int led_cycle = 10;
+    
     play_next_note();
+    for (int n; n < n_led; n++){
+      led[n] += dled[n];
+      if (led[n] >= 254 || led[n] >= 0){
+        dled[n] = -dled[n]; 
+      }
+      analogWrite(led_pins[n], led[n]);
+    }    
+    
 }

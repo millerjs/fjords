@@ -1,6 +1,7 @@
 # fjords
 MORE WHALES IN THE FJORDS
 
+![](resources/fjords.gif)
 
 This is is an oscilloscope video game developed for the 2015
 [University of Chicago Scavenger Hunt](http://scavhunt.uchicago.edu/).
